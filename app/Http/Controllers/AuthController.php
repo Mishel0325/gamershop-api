@@ -2,76 +2,112 @@
 
 namespace App\Http\Controllers;
 
-use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Auth;
 use App\Models\User;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Str;
 
 class AuthController extends Controller
 {
-    // LOGIN
-    public function login(Request $request)
-{
-    $credentials = $request->validate([
-        'email' => 'required|email',
-        'password' => 'required'
-    ]);
-
-    if (!Auth::attempt($credentials)) {
-        return response()->json([
-            'message' => 'Credenciales incorrectas'
-        ], 401);
-    }
-
-    $user = Auth::user();
-
-    $token = $user->createToken('auth_token')->plainTextToken;
-
-    return response()->json([
-        'message' => 'Login correcto',
-        'token' => $token,
-        'user' => [
-            'id' => $user->id,
-            'name' => $user->name,
-            'email' => $user->email,
-            'role' => $user->role
-        ]
-    ]);
-}
-    // LOGOUT
-    public function logout(Request $request)
-{
-    $request->user()->currentAccessToken()->delete();
-
-    return response()->json([
-        'message' => 'Sesión cerrada correctamente'
-    ]);
-}
-
-    // USUARIO AUTENTICADO
-    public function me()
+    // =========================
+    // REGISTRO
+    // =========================
+    public function register(Request $request)
     {
-        return response()->json(Auth::user());
+        $request->validate([
+            'name'     => 'required|string|max:255',
+            'email'    => 'required|email|unique:users,email',
+            'password' => 'required|min:6',
+        ]);
+
+        $user = User::create([
+            'name'     => $request->name,
+            'email'    => $request->email,
+            'password' => Hash::make($request->password),
+        ]);
+
+        return response()->json([
+            'message' => 'Usuario registrado correctamente',
+            'user' => [
+                'id'    => $user->id,
+                'name'  => $user->name,
+                'email' => $user->email,
+            ]
+        ], 201);
     }
 
-    // REGISTER
-public function register(Request $request)
-{
-    $data = $request->validate([
-        'name' => 'required|string|max:255',
-        'email' => 'required|email|unique:users',
-        'password' => 'required|min:6'
-    ]);
+    // =========================
+    // LOGIN (genera token)
+    // =========================
+    public function login(Request $request)
+    {
+        $request->validate([
+            'email'    => 'required|email',
+            'password' => 'required',
+        ]);
 
-    $user = User::create([
-        'name' => $data['name'],
-        'email' => $data['email'],
-        'password' => bcrypt($data['password']),
-        'role' => 'user'
-    ]);
+        $user = User::where('email', $request->email)->first();
 
-    return response()->json([
-        'message' => 'Usuario registrado correctamente',
-        'user' => $user
-    ], 201);
+        if (!$user || !Hash::check($request->password, $user->password)) {
+            return response()->json([
+                'message' => 'Credenciales incorrectas'
+            ], 401);
+        }
+
+        // Generar token simple (uno nuevo por login)
+        $user->api_token = hash('sha256', Str::random(60));
+        $user->save();
+
+        return response()->json([
+            'token' => $user->api_token
+        ]);
+    }
+
+    // =========================
+    // USUARIO AUTENTICADO
+    // =========================
+    public function me(Request $request)
+    {
+        $token = $request->bearerToken();
+
+        if (!$token) {
+            return response()->json([
+                'message' => 'Token requerido'
+            ], 401);
+        }
+
+        $user = User::where('api_token', $token)->first();
+
+        if (!$user) {
+            return response()->json([
+                'message' => 'Token inválido'
+            ], 401);
+        }
+
+        return response()->json([
+            'id'    => $user->id,
+            'name'  => $user->name,
+            'email' => $user->email,
+        ]);
+    }
+
+    // =========================
+    // LOGOUT
+    // =========================
+    public function logout(Request $request)
+    {
+        $token = $request->bearerToken();
+
+        if ($token) {
+            User::where('api_token', $token)->update([
+                'api_token' => null
+            ]);
+        }
+
+        return response()->json([
+            'message' => 'Sesión cerrada correctamente'
+        ]);
+    }
 }
-}
+
+
