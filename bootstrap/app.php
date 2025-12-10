@@ -13,7 +13,17 @@ return Application::configure(basePath: dirname(__DIR__))
     )
     ->withMiddleware(function (Middleware $middleware): void {
 
-    })
+    // CSRF desactivado para API 
+    $middleware->validateCsrfTokens(except: [
+        'api/*',
+    ]);
+
+    // REGISTRAR MIDDLEWARE DE ADMIN
+    $middleware->alias([
+        'is_admin' => \App\Http\Middleware\IsAdmin::class,
+    ]);
+})
     ->withExceptions(function (Exceptions $exceptions): void {
+        //
     })
     ->create();

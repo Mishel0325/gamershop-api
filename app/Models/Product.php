@@ -17,4 +17,16 @@ class Product extends Model
         'discount',
         'image_url',
     ];
+
+    // ACCESSOR CLAVE
+    public function getImageUrlAttribute($value)
+    {
+        // Si existe imagen → devuelve URL completa
+        if ($value) {
+            return url($value);
+        }
+
+        // Imagen por defecto SIEMPRE
+        return url('images/games/default.jpg');
+    }
 }

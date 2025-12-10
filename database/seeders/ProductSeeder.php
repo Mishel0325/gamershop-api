@@ -9,49 +9,50 @@ class ProductSeeder extends Seeder
 {
     public function run(): void
     {
-        // Juegos base con portadas REALES
+        // Limpiar tabla
+        Product::truncate();
+
+        // Juegos base con IMÁGENES LOCALES
+        // Estas rutas existen en: public/images/games/
         $games = [
-            'God of War' => 'https://upload.wikimedia.org/wikipedia/en/a/a7/God_of_War_4_cover.jpg',
-            'Elden Ring' => 'https://upload.wikimedia.org/wikipedia/en/b/b9/Elden_Ring_Box_art.jpg',
-            'Red Dead Redemption 2' => 'https://upload.wikimedia.org/wikipedia/en/4/44/Red_Dead_Redemption_II.jpg',
-            'Cyberpunk 2077' => 'https://upload.wikimedia.org/wikipedia/en/9/9f/Cyberpunk_2077_box_art.jpg',
-            'The Witcher 3' => 'https://upload.wikimedia.org/wikipedia/en/0/0c/Witcher_3_cover_art.jpg',
-            'GTA V' => 'https://upload.wikimedia.org/wikipedia/en/a/a5/Grand_Theft_Auto_V.png',
-            'Resident Evil 4' => 'https://upload.wikimedia.org/wikipedia/en/d/d9/Resident_Evil_4_remake_cover_art.jpg',
-            'Sekiro' => 'https://upload.wikimedia.org/wikipedia/en/6/6e/Sekiro_art.jpg',
-            'Hogwarts Legacy' => 'https://upload.wikimedia.org/wikipedia/en/1/1e/Hogwarts_Legacy_cover_art.jpg',
-            'Assassin’s Creed Valhalla' => 'https://upload.wikimedia.org/wikipedia/en/2/29/Assassin%27s_Creed_Valhalla_cover.jpg',
-            'Dark Souls III' => 'https://upload.wikimedia.org/wikipedia/en/b/bb/Dark_Souls_III_cover_art.jpg',
-            'DOOM Eternal' => 'https://upload.wikimedia.org/wikipedia/en/9/9d/Cover_Art_of_DOOM_Eternal.png',
-            'Forza Horizon 5' => 'https://upload.wikimedia.org/wikipedia/en/8/86/Forza_Horizon_5_cover_art.jpg',
-            'Halo Infinite' => 'https://upload.wikimedia.org/wikipedia/en/1/13/Halo_Infinite.png',
-            'Mortal Kombat 1' => 'https://upload.wikimedia.org/wikipedia/en/2/25/Mortal_Kombat_1_cover_art.png',
+            'God of War' => 'images/games/god-of-war.jpg',
+            'Elden Ring' => 'images/games/elden-ring.jpg',
+            'Red Dead Redemption 2' => 'images/games/red-dead-2.jpg',
+            'Cyberpunk 2077' => 'images/games/cyberpunk-2077.jpg',
+            'The Witcher 3' => 'images/games/witcher-3.jpg',
+            'GTA V' => 'images/games/gta-v.jpg',
+            'Resident Evil 4' => 'images/games/resident-evil-4.jpg',
+            'Sekiro' => 'images/games/sekiro.jpg',
+            'Hogwarts Legacy' => 'images/games/hogwarts-legacy.jpg',
+            'Assassins Creed Valhalla' => 'images/games/ac-valhalla.jpg',
+            'Dark Souls III' => 'images/games/dark-souls-3.jpg',
+            'DOOM Eternal' => 'images/games/doom-eternal.jpg',
+            'Forza Horizon 5' => 'images/games/forza-horizon-5.jpg',
+            'Halo Infinite' => 'images/games/halo-infinite.jpg',
+            'Mortal Kombat 1' => 'images/games/mortal-kombat-1.jpg',
         ];
 
         $stores = ['Steam', 'Epic', 'GOG'];
-
         $i = 1;
 
-        // Generar 200 juegos únicos
+        // Generar EXACTAMENTE 200 juegos
         while ($i <= 200) {
-
-            foreach ($games as $name => $image) {
+            foreach ($games as $name => $imagePath) {
 
                 if ($i > 200) break;
 
-                Product::updateOrCreate(
-                    [
-                        // Nombre único (NO se repite)
-                        'name' => $name . " Edition #{$i}"
-                    ],
-                    [
-                        'description' => "Edición digital de {$name} disponible en tienda oficial.",
-                        'price' => rand(10, 70),
-                        'store' => $stores[array_rand($stores)],
-                        'discount' => rand(0, 1) ? rand(10, 70) : null,
-                        'image_url' => $image, // ✅ SIEMPRE hay imagen
-                    ]
-                );
+                Product::create([
+                    'name' => "{$name} Edition #{$i}",
+                    'description' => "Edición digital de {$name} disponible en tienda oficial.",
+                    'price' => number_format(rand(1000, 7000) / 100, 2), // 10.00 – 70.00
+                    'store' => $stores[array_rand($stores)],
+                    'discount' => rand(0, 1) ? rand(10, 70) : 0,
+
+                    // Si la imagen NO existe, usa default.jpg
+                    'image_url' => file_exists(public_path($imagePath))
+                        ? $imagePath
+                        : 'images/games/default.jpg',
+                ]);
 
                 $i++;
             }

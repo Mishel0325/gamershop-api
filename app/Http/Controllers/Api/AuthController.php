@@ -1,7 +1,8 @@
 <?php
 
-namespace App\Http\Controllers;
+namespace App\Http\Controllers\Api;
 
+use App\Http\Controllers\Controller;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
@@ -36,32 +37,32 @@ class AuthController extends Controller
         ], 201);
     }
 
-    // =========================
-    // LOGIN (genera token)
-    // =========================
-    public function login(Request $request)
-    {
-        $request->validate([
-            'email'    => 'required|email',
-            'password' => 'required',
-        ]);
+public function login(Request $request)
+{
+    $request->validate([
+        'email'    => 'required|email',
+        'password' => 'required',
+    ]);
 
-        $user = User::where('email', $request->email)->first();
+    $user = User::where('email', $request->email)->first();
 
-        if (!$user || !Hash::check($request->password, $user->password)) {
-            return response()->json([
-                'message' => 'Credenciales incorrectas'
-            ], 401);
-        }
-
-        // Generar token simple (uno nuevo por login)
-        $user->api_token = hash('sha256', Str::random(60));
-        $user->save();
-
+    if (!$user || !Hash::check($request->password, $user->password)) {
         return response()->json([
-            'token' => $user->api_token
-        ]);
+            'message' => 'Credenciales incorrectas'
+        ], 401);
     }
+
+    $user->api_token = hash('sha256', Str::random(60));
+    $user->save();
+
+    return response()->json([
+        'token' => $user->api_token,
+        'role'  => $user->role,   // CLAVE
+        'name'  => $user->name,   // CLAVE
+        'email' => $user->email,
+    ]);
+}
+
 
     // =========================
     // USUARIO AUTENTICADO
@@ -71,17 +72,13 @@ class AuthController extends Controller
         $token = $request->bearerToken();
 
         if (!$token) {
-            return response()->json([
-                'message' => 'Token requerido'
-            ], 401);
+            return response()->json(['message' => 'Token requerido'], 401);
         }
 
         $user = User::where('api_token', $token)->first();
 
         if (!$user) {
-            return response()->json([
-                'message' => 'Token inválido'
-            ], 401);
+            return response()->json(['message' => 'Token inválido'], 401);
         }
 
         return response()->json([
@@ -109,5 +106,6 @@ class AuthController extends Controller
         ]);
     }
 }
+
 
 
