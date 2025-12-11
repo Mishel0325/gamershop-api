@@ -1,27 +1,28 @@
-/*********************************************************
- * CONFIG
- *********************************************************/
+/*CONFIG*/
 const API_URL   = 'http://127.0.0.1:8000/api/products';
 const LOGIN_URL = 'http://127.0.0.1:8000/api/login';
 
-/*********************************************************
- * AUTH
- *********************************************************/
+/* PAGINACIÓN*/
+let currentPage = 1;
+let itemsPerPage = 20;  
+let totalProducts = 0;
+let isLoadingMore = false;
+let currentUserId = localStorage.getItem('user_id') || null;
+let favoriteIds = new Set();
+
+/*AUTH*/
 let TOKEN = localStorage.getItem('token');
 let ROLE  = localStorage.getItem('role');
 
-/*********************************************************
- * ELEMENTOS PRINCIPALES
- *********************************************************/
+/*ELEMENTOS PRINCIPALES*/
 const gamesGrid   = document.getElementById('games');
 const searchInput = document.getElementById('search');
 const storeSelect = document.getElementById('store');
 const orderSelect = document.getElementById('order');
 const offerCheck  = document.getElementById('offer');
+const headerHome  = document.getElementById('header-home');
 
-/*********************************************************
- * LOGIN ELEMENTOS
- *********************************************************/
+/*LOGIN ELEMENTOS*/
 const loginModal = document.getElementById('login-modal');
 const loginOpen  = document.getElementById('login-open');
 const loginClose = document.getElementById('login-close');
@@ -31,12 +32,31 @@ const loginEmail = document.getElementById('login-email');
 const loginPass  = document.getElementById('login-password');
 const togglePass = document.getElementById('toggle-password');
 
-/*********************************************************
- * ADMIN UI
- *********************************************************/
+// REGISTRO ELEMENTOS
+const tabLogin = document.getElementById('tab-login');
+const tabRegister = document.getElementById('tab-register');
+const loginForm = document.getElementById('login-form');
+const registerForm = document.getElementById('register-form');
+const registerName = document.getElementById('register-name');
+const registerEmail = document.getElementById('register-email');
+const registerPassword = document.getElementById('register-password');
+const registerPasswordConfirm = document.getElementById('register-password-confirm');
+const toggleRegisterPassword = document.getElementById('toggle-register-password');
+const toggleRegisterPasswordConfirm = document.getElementById('toggle-register-password-confirm');
+const registerBtn = document.getElementById('register-btn');
+const registerError = document.getElementById('register-error');
+const registerClose = document.getElementById('register-close');
+
+/*ADMIN UI*/
 const adminBadge = document.getElementById('admin-badge');
 const logoutBtn  = document.getElementById('logout-btn');
 const createBtn  = document.getElementById('create-product-btn');
+
+/*FAVORITOS UI*/
+const favoritesBtn = document.getElementById('favorites-btn');
+const favoritesSection = document.getElementById('favorites-section');
+const favoritesGrid = document.getElementById('favorites-grid');
+const backToGamesBtn = document.getElementById('back-to-games');
 
 /*********************************************************
  * ADMIN MODAL
@@ -68,6 +88,34 @@ document.addEventListener('DOMContentLoaded', () => {
     createBtn.classList.remove('hidden');
   }
 
+  // Ocultar filtros si no hay sesión iniciada
+  const filtersContainer = document.getElementById('filters');
+  if (filtersContainer) {
+    if (!TOKEN) {
+      filtersContainer.classList.add('hidden');
+    } else {
+      filtersContainer.classList.remove('hidden');
+    }
+  }
+
+  loadProducts();
+});
+
+/*********************************************************
+ * HEADER HOME CLICK
+ *********************************************************/
+headerHome.addEventListener('click', () => {
+  // Resetear estado
+  currentPage = 1;
+  hideFavoritesSection();
+  
+  // Limpiar filtros
+  if (searchInput) searchInput.value = '';
+  if (storeSelect) storeSelect.value = '';
+  if (orderSelect) orderSelect.value = '';
+  if (offerCheck) offerCheck.checked = false;
+  
+  // Cargar productos nuevamente
   loadProducts();
 });
 
@@ -77,15 +125,49 @@ document.addEventListener('DOMContentLoaded', () => {
 loginOpen.addEventListener('click', () => {
   loginModal.classList.remove('hidden');
   loginModal.classList.add('flex');
+  showLoginTab(); // mostrar pestaña login por defecto
 });
 
 loginClose.addEventListener('click', closeLogin);
+registerClose.addEventListener('click', closeLogin);
 
 function closeLogin() {
   loginModal.classList.add('hidden');
   loginModal.classList.remove('flex');
   loginError.classList.add('hidden');
+  registerError.classList.add('hidden');
+  // limpiar formularios
+  loginEmail.value = '';
+  loginPass.value = '';
+  registerName.value = '';
+  registerEmail.value = '';
+  registerPassword.value = '';
+  registerPasswordConfirm.value = '';
 }
+
+/*********************************************************
+ * PESTAÑAS AUTH
+ *********************************************************/
+function showLoginTab() {
+  loginForm.classList.remove('hidden');
+  registerForm.classList.add('hidden');
+  tabLogin.classList.add('text-emerald-600', 'border-emerald-600');
+  tabLogin.classList.remove('text-slate-500', 'border-transparent');
+  tabRegister.classList.remove('text-emerald-600', 'border-emerald-600');
+  tabRegister.classList.add('text-slate-500', 'border-transparent');
+}
+
+function showRegisterTab() {
+  registerForm.classList.remove('hidden');
+  loginForm.classList.add('hidden');
+  tabRegister.classList.add('text-emerald-600', 'border-emerald-600');
+  tabRegister.classList.remove('text-slate-500', 'border-transparent');
+  tabLogin.classList.remove('text-emerald-600', 'border-emerald-600');
+  tabLogin.classList.add('text-slate-500', 'border-transparent');
+}
+
+tabLogin.addEventListener('click', showLoginTab);
+tabRegister.addEventListener('click', showRegisterTab);
 
 /*********************************************************
  * VER CONTRASEÑA
@@ -93,6 +175,38 @@ function closeLogin() {
 togglePass.addEventListener('click', () => {
   loginPass.type = loginPass.type === 'password' ? 'text' : 'password';
   togglePass.textContent = loginPass.type === 'password' ? '👁' : '🙈';
+});
+
+toggleRegisterPassword.addEventListener('click', () => {
+  registerPassword.type = registerPassword.type === 'password' ? 'text' : 'password';
+  toggleRegisterPassword.textContent = registerPassword.type === 'password' ? '👁' : '🙈';
+});
+
+toggleRegisterPasswordConfirm.addEventListener('click', () => {
+  registerPasswordConfirm.type = registerPasswordConfirm.type === 'password' ? 'text' : 'password';
+  toggleRegisterPasswordConfirm.textContent = registerPasswordConfirm.type === 'password' ? '👁' : '🙈';
+});
+
+/*********************************************************
+ * VALIDACIÓN CONTRASEÑA SEGURA
+ *********************************************************/
+function validatePassword(pwd) {
+  const hasLength = pwd.length >= 6;
+  const hasUppercase = /[A-Z]/.test(pwd);
+  const hasNumber = /[0-9]/.test(pwd);
+
+  document.getElementById('pwd-length').innerHTML = 
+    hasLength ? '✅ Mínimo 6 caracteres' : '❌ Mínimo 6 caracteres';
+  document.getElementById('pwd-uppercase').innerHTML = 
+    hasUppercase ? '✅ Una mayúscula' : '❌ Una mayúscula';
+  document.getElementById('pwd-number').innerHTML = 
+    hasNumber ? '✅ Un número' : '❌ Un número';
+
+  return hasLength && hasUppercase && hasNumber;
+}
+
+registerPassword.addEventListener('input', () => {
+  validatePassword(registerPassword.value);
 });
 
 /*********************************************************
@@ -119,6 +233,7 @@ loginBtn.addEventListener('click', async () => {
     });
 
     const data = await res.json();
+    console.log('Products response:', data);
 
     if (!res.ok) {
       // mostrar mensaje que venga del backend si existe
@@ -146,6 +261,70 @@ loginBtn.addEventListener('click', async () => {
 });
 
 /*********************************************************
+ * REGISTRO API
+ *********************************************************/
+registerBtn.addEventListener('click', async () => {
+  const name = registerName.value.trim();
+  const email = registerEmail.value.trim();
+  const password = registerPassword.value.trim();
+  const passwordConfirm = registerPasswordConfirm.value.trim();
+
+  registerError.classList.add('hidden');
+
+  // Validaciones
+  if (!name || !email || !password || !passwordConfirm) {
+    registerError.textContent = 'Completa todos los campos';
+    registerError.classList.remove('hidden');
+    return;
+  }
+
+  if (!validatePassword(password)) {
+    registerError.textContent = 'La contraseña no cumple los requisitos';
+    registerError.classList.remove('hidden');
+    return;
+  }
+
+  if (password !== passwordConfirm) {
+    registerError.textContent = 'Las contraseñas no coinciden';
+    registerError.classList.remove('hidden');
+    return;
+  }
+
+  try {
+    const res = await fetch('http://127.0.0.1:8000/api/register', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Accept: 'application/json'
+      },
+      body: JSON.stringify({ name, email, password })
+    });
+
+    const data = await res.json();
+
+    if (!res.ok) {
+      registerError.textContent = data.message || 'Error al registrar';
+      registerError.classList.remove('hidden');
+      console.error('Error registro:', data);
+      return;
+    }
+
+    // Mostrar mensaje de éxito y cambiar a login
+    registerError.classList.add('hidden');
+    alert('¡Cuenta creada! Ahora inicia sesión con tus credenciales.');
+    registerName.value = '';
+    registerEmail.value = '';
+    registerPassword.value = '';
+    registerPasswordConfirm.value = '';
+    showLoginTab();
+  } catch (e) {
+    console.error('Error de servidor en registro:', e);
+    registerError.textContent = 'Error de servidor';
+    registerError.classList.remove('hidden');
+  }
+});
+
+/*********************************************************
  * LOGOUT
  *********************************************************/
 logoutBtn.addEventListener('click', () => {
@@ -154,22 +333,134 @@ logoutBtn.addEventListener('click', () => {
 });
 
 /*********************************************************
- * PRODUCTOS (LISTAR)
+ * MOSTRAR / OCULTAR FAVORITOS
  *********************************************************/
-async function loadProducts() {
-  try {
-    const paramsObj = {
-      search: searchInput ? (searchInput.value || '') : '',
-      store:  storeSelect ? (storeSelect.value || '') : '',
-      order:  orderSelect ? (orderSelect.value || '') : ''
-    };
+function showFavoritesSection() {
+  gamesGrid.parentElement.classList.add('hidden');
+  document.querySelector('main').style.display = 'none';
+  favoritesSection.classList.remove('hidden');
+  loadFavoritesDisplay();
+}
 
-    if (offerCheck && offerCheck.checked) {
-      paramsObj.offer = 1;
+function hideFavoritesSection() {
+  favoritesSection.classList.add('hidden');
+  document.querySelector('main').style.display = 'block';
+  gamesGrid.parentElement.classList.remove('hidden');
+}
+
+favoritesBtn.addEventListener('click', showFavoritesSection);
+backToGamesBtn.addEventListener('click', hideFavoritesSection);
+
+/*********************************************************
+ * CARGAR Y MOSTRAR FAVORITOS
+ *********************************************************/
+async function loadFavoritesDisplay() {
+  if (!currentUserId || favoriteIds.size === 0) {
+    favoritesGrid.innerHTML = `
+      <p class="col-span-full text-center text-gray-500 font-semibold">
+        No tienes productos favoritos aún
+      </p>
+    `;
+    return;
+  }
+
+  try {
+    // Obtener todos los productos y filtrar por favoritos
+    const res = await fetch(`${API_URL}?per_page=200`);
+    if (!res.ok) throw new Error('Error cargando productos');
+    
+    const data = await res.json();
+    const allProducts = Array.isArray(data) ? data : (data.data ?? data);
+    
+    // Filtrar solo los favoritos
+    const favoriteProducts = allProducts.filter(p => favoriteIds.has(p.id));
+    
+    if (favoriteProducts.length === 0) {
+      favoritesGrid.innerHTML = `
+        <p class="col-span-full text-center text-gray-500 font-semibold">
+          No tienes productos favoritos aún
+        </p>
+      `;
+      return;
     }
 
-    const params = new URLSearchParams(paramsObj);
-    const res    = await fetch(`${API_URL}?${params}`);
+    // Renderizar favoritos
+    favoritesGrid.innerHTML = '';
+    favoriteProducts.forEach(p => {
+      const div = document.createElement('div');
+      div.className = 'bg-slate-900 text-white rounded-xl shadow overflow-hidden';
+
+      const isFav = favoriteIds.has(p.id);
+      // En la sección de favoritos siempre mostrar botón (usuario está autenticado)
+      div.innerHTML = `
+        <div class="relative">
+          <img src="${getImage(p)}" class="h-64 w-full object-cover">
+          <button data-id="${p.id}" class="absolute top-2 right-2 text-2xl" onclick="toggleFavorite(${p.id}, this)">` + (isFav ? '❤️' : '🤍') + `</button>
+        </div>
+        <div class="p-4 space-y-2">
+              <h4 class="font-bold">${p.name}</h4>
+              <span class="text-emerald-400 font-black">$${Number(p.price).toFixed(2)}</span>
+
+          <button class="w-full bg-emerald-500 py-2 rounded font-bold"
+            onclick='openDetails(${JSON.stringify(p)})'>
+            Detalles
+          </button>
+
+          ${ROLE === 'admin' ? `
+            <div class="flex gap-2 mt-2">
+              <button class="flex-1 bg-blue-500 py-1 rounded"
+                onclick='openEdit(${JSON.stringify(p)})'>
+                Editar
+              </button>
+              <button class="flex-1 bg-red-600 py-1 rounded"
+                onclick='deleteProduct(${p.id})'>
+                Eliminar
+              </button>
+            </div>
+          ` : ''}
+        </div>
+      `;
+
+      favoritesGrid.appendChild(div);
+    });
+
+  } catch (e) {
+    console.error('Error cargando favoritos:', e);
+    favoritesGrid.innerHTML = `
+      <p class="col-span-full text-center text-red-600 font-semibold">
+        Error al cargar favoritos
+      </p>
+    `;
+  }
+}
+
+/*********************************************************
+ * PRODUCTOS (LISTAR)
+ *********************************************************/
+async function loadProducts(page = 1) {
+  try {
+    // Resetear página y limpiar grid si es nueva búsqueda
+    if (page === 1) {
+      currentPage = 1;
+      gamesGrid.innerHTML = '';
+    }
+
+    // Construir params solo con valores no vacíos para evitar enviar claves vacías
+    const params = new URLSearchParams();
+    const searchVal = searchInput ? (searchInput.value || '') : '';
+    const storeVal  = storeSelect ? (storeSelect.value || '') : '';
+    const orderVal  = orderSelect ? (orderSelect.value || '') : '';
+
+    if (searchVal) params.append('search', searchVal);
+    if (storeVal)  params.append('store', storeVal);
+    if (orderVal)  params.append('order', orderVal);
+    if (offerCheck && offerCheck.checked) params.append('offer', '1');
+    params.append('page', String(page));
+    params.append('per_page', String(itemsPerPage));
+
+    const fetchUrl = `${API_URL}?${params}`;
+    console.log('Fetching products URL:', fetchUrl);
+    const res = await fetch(fetchUrl);
 
     if (!res.ok) {
       throw new Error('Respuesta no OK de la API');
@@ -177,17 +468,18 @@ async function loadProducts() {
 
     const data = await res.json();
 
-    gamesGrid.innerHTML = '';
-
-    // API paginada: { data: [...] }
-    const products = data.data ?? data;
+    // API paginada: { data: [...], total: N, per_page: N, current_page: N } o simplemente array
+    const products = Array.isArray(data) ? data : (data.data ?? data);
+    totalProducts = data.total || products.length;
 
     if (!products || products.length === 0) {
-      gamesGrid.innerHTML = `
-        <p class="col-span-full text-center text-gray-500 font-semibold">
-          No hay productos disponibles
-        </p>
-      `;
+      if (page === 1) {
+        gamesGrid.innerHTML = `
+          <p class="col-span-full text-center text-gray-500 font-semibold">
+            No hay productos disponibles
+          </p>
+        `;
+      }
       return;
     }
 
@@ -195,13 +487,21 @@ async function loadProducts() {
       const div = document.createElement('div');
       div.className = 'bg-slate-900 text-white rounded-xl shadow overflow-hidden';
 
+      const isFav = favoriteIds.has(p.id);
+      // Solo mostrar botón de favorito si hay sesión
+      const favoriteBtn = TOKEN ? `<button data-id="${p.id}" class="absolute top-2 right-2 text-2xl" onclick="toggleFavorite(${p.id}, this)">` + (isFav ? '❤️' : '🤍') + `</button>` : '';
+      
       div.innerHTML = `
-        <img src="${getImage(p)}" class="h-64 w-full object-cover">
+        <div class="relative">
+          <img src="${getImage(p)}" class="h-64 w-full object-cover">
+          ${favoriteBtn}
+        </div>
         <div class="p-4 space-y-2">
           <h4 class="font-bold">${p.name}</h4>
-          <span class="text-emerald-400 font-black">$${p.price}</span>
+          <span class="text-emerald-400 font-black">$${Number(p.price).toFixed(2)}</span>
 
-          <button class="w-full bg-emerald-500 py-2 rounded">
+          <button class="w-full bg-emerald-500 py-2 rounded font-bold"
+            onclick='openDetails(${JSON.stringify(p)})'>
             Detalles
           </button>
 
@@ -223,14 +523,56 @@ async function loadProducts() {
       gamesGrid.appendChild(div);
     });
 
+    // Actualizar visibilidad del botón "Ver más"
+    const loadMoreBtn = document.getElementById('load-more');
+    if (loadMoreBtn) {
+      const totalLoaded = page * itemsPerPage;
+      loadMoreBtn.style.display = totalLoaded < totalProducts ? 'block' : 'none';
+    }
+
   } catch (e) {
     console.error('Error cargando productos:', e);
-    gamesGrid.innerHTML = `
-      <p class="col-span-full text-center text-red-600 font-semibold">
-        Error al cargar productos
-      </p>
-    `;
+    if (currentPage === 1) {
+      gamesGrid.innerHTML = `
+        <p class="col-span-full text-center text-red-600 font-semibold">
+          Error al cargar productos
+        </p>
+      `;
+    }
   }
+}
+
+/*********************************************************
+ * CARGAR MÁS PRODUCTOS
+ *********************************************************/
+async function loadMoreProducts() {
+  if (isLoadingMore) return;
+  isLoadingMore = true;
+
+  currentPage++;
+
+  // Mantener filtros actuales
+  const currentSearch = searchInput?.value || '';
+  const currentStore  = storeSelect?.value || '';
+  const currentOrder  = orderSelect?.value || '';
+  const offer         = offerCheck?.checked ? '1' : '';
+
+  const params = new URLSearchParams();
+
+  if (currentSearch) params.append('search', currentSearch);
+  if (currentStore)  params.append('store', currentStore);
+  if (currentOrder)  params.append('order', currentOrder);
+  if (offer)         params.append('offer', offer);
+
+  params.append('page', String(currentPage));
+  params.append('per_page', String(itemsPerPage));
+
+  // Llamamos a loadProducts pasando la página actual (la función loadProducts
+  // ya lee los filtros directamente del DOM), pero dejamos el params construido
+  // por compatibilidad con futuros cambios.
+  await loadProducts(currentPage);
+
+  isLoadingMore = false;
 }
 
 /*********************************************************
@@ -244,6 +586,42 @@ function getImage(p) {
     ? p.image_url
     : `http://127.0.0.1:8000${p.image_url}`;
 }
+
+/*********************************************************
+ * DETALLES (MODAL)
+ *********************************************************/
+function openDetails(product) {
+  const modal = document.getElementById('details-modal');
+  if (!modal) return;
+
+  const imgEl = document.getElementById('details-image');
+  const nameEl = document.getElementById('details-name');
+  const descEl = document.getElementById('details-description');
+  const storeEl = document.getElementById('details-store');
+  const priceEl = document.getElementById('details-price');
+  const discEl = document.getElementById('details-discount');
+
+  if (imgEl) imgEl.src = getImage(product);
+  if (nameEl) nameEl.textContent = product.name ?? '';
+  if (descEl) descEl.textContent = product.description ?? '';
+  if (storeEl) storeEl.textContent = product.store ?? '';
+  if (priceEl) priceEl.textContent = product.price ?? '';
+  if (discEl) discEl.textContent = product.discount ?? 0;
+
+  modal.classList.remove('hidden');
+  modal.classList.add('flex');
+}
+
+// Cerrar modal detalles
+document.getElementById('details-close')?.addEventListener('click', () => {
+  const modal = document.getElementById('details-modal');
+  if (!modal) return;
+  modal.classList.add('hidden');
+  modal.classList.remove('flex');
+});
+
+// Exponer para llamadas inline
+window.openDetails = openDetails;
 
 /*********************************************************
  * ABRIR MODAL ADMIN (CREAR / EDITAR)
@@ -397,6 +775,33 @@ async function deleteProduct(id) {
   }
 }
 
+/*********************************************************
+ * MODAL DETALLES
+ *********************************************************/
+const detailsModal = document.getElementById('details-modal');
+const detailsClose = document.getElementById('details-close');
+
+function openDetails(product) {
+  document.getElementById('details-image').src = getImage(product);
+  document.getElementById('details-name').textContent = product.name;
+  document.getElementById('details-description').textContent = product.description || '';
+  document.getElementById('details-store').textContent = product.store || '';
+  document.getElementById('details-price').textContent = product.price;
+  document.getElementById('details-discount').textContent = product.discount || 0;
+
+  detailsModal.classList.remove('hidden');
+  detailsModal.classList.add('flex');
+}
+
+detailsClose.addEventListener('click', () => {
+  detailsModal.classList.add('hidden');
+  detailsModal.classList.remove('flex');
+});
+
+// accesible desde botones
+window.openDetails = openDetails;
+
+
 // accesible desde el HTML inline
 window.deleteProduct = deleteProduct;
 
@@ -419,9 +824,9 @@ if (searchInput) {
   });
 }
 
-// Selects y checkbox
+// Selects y checkbox — llamar con página 1 para evitar que el evento sea usado como 'page'
 [storeSelect, orderSelect, offerCheck].forEach(el => {
-  if (el) el.addEventListener('change', loadProducts);
+  if (el) el.addEventListener('change', () => loadProducts(1));
 });
 
 // limpiar buscador al volver / recargar desde caché
@@ -430,3 +835,102 @@ window.addEventListener('pageshow', () => {
     searchInput.value = '';
   }
 });
+
+/*********************************************************
+ * BOTÓN VER MÁS (PAGINACIÓN)
+ *********************************************************/
+const loadMoreBtn = document.getElementById('load-more');
+if (loadMoreBtn) {
+  loadMoreBtn.addEventListener('click', loadMoreProducts);
+}
+
+// Exponer función al scope global para ser llamada desde HTML
+window.loadMoreProducts = loadMoreProducts;
+
+// ==========================
+// FAVORITOS (FRONT)
+// ==========================
+async function loadUser() {
+  if (!TOKEN) return;
+  try {
+    const res = await fetch('http://127.0.0.1:8000/api/me', {
+      headers: {
+        Accept: 'application/json',
+        ...(TOKEN ? { Authorization: `Bearer ${TOKEN}` } : {})
+      }
+    });
+    if (!res.ok) return;
+    const data = await res.json();
+    currentUserId = data.id;
+    localStorage.setItem('user_id', currentUserId);
+    
+    // Mostrar botón de favoritos solo si hay sesión y NO es admin
+    if (favoritesBtn && data.role !== 'admin') {
+      favoritesBtn.classList.remove('hidden');
+    } else if (favoritesBtn) {
+      favoritesBtn.classList.add('hidden');
+    }
+    
+    await loadFavorites();
+  } catch (e) {
+    console.error('Error cargando usuario:', e);
+  }
+}
+
+async function loadFavorites() {
+  if (!currentUserId) return;
+  try {
+    const res = await fetch(`http://127.0.0.1:8000/api/favorites/${currentUserId}`);
+    if (!res.ok) return;
+    const data = await res.json();
+    favoriteIds = new Set((data || []).map(id => Number(id)));
+  } catch (e) {
+    console.error('Error cargando favoritos:', e);
+  }
+}
+
+async function toggleFavorite(productId, btnEl) {
+  if (!TOKEN || !currentUserId) {
+    alert('Debes iniciar sesión para usar favoritos');
+    return;
+  }
+
+  const isFav = favoriteIds.has(productId);
+  // optimista
+  if (isFav) {
+    favoriteIds.delete(productId);
+    if (btnEl) btnEl.innerText = '🤍';
+    try {
+      await fetch('http://127.0.0.1:8000/api/favorites', {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+          Accept: 'application/json'
+        },
+        body: JSON.stringify({ user_id: currentUserId, product_id: productId })
+      });
+    } catch (e) {
+      console.error('Error eliminando favorito:', e);
+    }
+  } else {
+    favoriteIds.add(productId);
+    if (btnEl) btnEl.innerText = '❤️';
+    try {
+      await fetch('http://127.0.0.1:8000/api/favorites', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Accept: 'application/json'
+        },
+        body: JSON.stringify({ user_id: currentUserId, product_id: productId })
+      });
+    } catch (e) {
+      console.error('Error creando favorito:', e);
+    }
+  }
+}
+
+window.toggleFavorite = toggleFavorite;
+
+// Intenta cargar usuario/favoritos al inicio
+loadUser();

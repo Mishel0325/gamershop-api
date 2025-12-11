@@ -19,12 +19,14 @@ class AuthController extends Controller
             'name'     => 'required|string|max:255',
             'email'    => 'required|email|unique:users,email',
             'password' => 'required|min:6',
+            'role'     => 'nullable|in:client,admin',  // Opcional, por defecto 'client'
         ]);
 
         $user = User::create([
             'name'     => $request->name,
             'email'    => $request->email,
             'password' => Hash::make($request->password),
+            'role'     => $request->role ?? 'client',  // Usar el rol proporcionado o 'client' por defecto
         ]);
 
         return response()->json([
@@ -33,6 +35,7 @@ class AuthController extends Controller
                 'id'    => $user->id,
                 'name'  => $user->name,
                 'email' => $user->email,
+                'role'  => $user->role,  // Retornar el rol
             ]
         ], 201);
     }
@@ -85,6 +88,7 @@ public function login(Request $request)
             'id'    => $user->id,
             'name'  => $user->name,
             'email' => $user->email,
+            'role'  => $user->role,  // Retornar el rol
         ]);
     }
 

@@ -3,6 +3,7 @@
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\ProductController;
+use App\Http\Controllers\FavoriteController;
 
 // =====================
 // AUTENTICACIÓN (PÚBLICO)
@@ -23,8 +24,21 @@ Route::get('/products', [ProductController::class, 'index']);
 Route::get('/products/{product}', [ProductController::class, 'show']);
 
 // =====================
+// IMÁGENES (PÚBLICO)
+// =====================
+Route::get('/images', [ProductController::class, 'listImages']);
+
+// =====================
 // PRODUCTOS (ADMIN - validación en controller)
 // =====================
 Route::post('/products', [ProductController::class, 'store']);
 Route::put('/products/{product}', [ProductController::class, 'update']);
 Route::delete('/products/{product}', [ProductController::class, 'destroy']);
+
+// =====================
+// FAVORITOS 
+// =====================
+
+Route::get('/favorites/{user_id}', [FavoriteController::class, 'index']);
+Route::post('/favorites', [FavoriteController::class, 'store']);
+Route::delete('/favorites', [FavoriteController::class, 'destroy']);

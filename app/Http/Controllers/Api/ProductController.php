@@ -9,72 +9,94 @@ use Illuminate\Http\Request;
 
 class ProductController extends Controller
 {
-    // =========================
+    // ========================================================
     // LISTADO + FILTROS (PÚBLICO)
-    // =========================
+    // ========================================================
     public function index(Request $request)
     {
         $query = Product::query();
 
-        // 🔍 BUSCAR POR NOMBRE
+        /* =========================
+         * 🔍 BUSCAR POR NOMBRE
+         * ========================= */
         if ($request->filled('search')) {
             $query->where('name', 'like', '%' . $request->search . '%');
         }
 
-        // 🏪 FILTRAR POR TIENDA
+        /* =========================
+         * 🏪 FILTRAR POR TIENDA
+         * (Steam, Epic o GOG)
+         * ========================= */
         if ($request->filled('store')) {
             $query->where('store', $request->store);
         }
 
-        // 🔥 SOLO OFERTAS
+        /* =========================
+         * 🔥 SOLO OFERTAS
+         * ========================= */
         if ($request->boolean('offer')) {
             $query->where('discount', '>', 0);
         }
 
-        // 💲 ORDENAR POR PRECIO
-        if (in_array($request->order, ['asc', 'desc'])) {
-            $query->orderBy('price', $request->order);
+        /* =========================
+         * 💲 ORDENAR POR PRECIO
+         * (asc = menor→mayor, desc = mayor→menor)
+         * ========================= */
+        if ($request->filled('order')) {
+
+            if ($request->order === 'asc') {
+                $query->orderBy('price', 'asc');
+            }
+
+            if ($request->order === 'desc') {
+                $query->orderBy('price', 'desc');
+            }
+
         } else {
+            // Orden por defecto
             $query->orderBy('id', 'asc');
         }
 
-        // 📦 PAGINACIÓN
-        return $query->paginate(20);
+        /* =========================
+         * 📦 PAGINACIÓN
+         * ========================= */
+        $perPage = $request->input('per_page', 20);
+        return $query->paginate($perPage);
     }
 
-    // =========================
-    // FUNCIÓN AUXILIAR (ADMIN)
-    // =========================
+    // ========================================================
+    // VALIDACIÓN DE ADMIN
+    // ========================================================
     private function checkAdmin(Request $request)
-{
-    $token = $request->bearerToken();
+    {
+        $token = $request->bearerToken();
 
-    if (!$token) {
-        return response()->json([
-            'message' => 'Token requerido'
-        ], 401);
+        if (!$token) {
+            return response()->json([
+                'message' => 'Token requerido'
+            ], 401);
+        }
+
+        $user = User::where('api_token', $token)->first();
+
+        if (!$user) {
+            return response()->json([
+                'message' => 'Token inválido'
+            ], 401);
+        }
+
+        if ($user->role !== 'admin') {
+            return response()->json([
+                'message' => 'Acceso denegado: solo administradores'
+            ], 403);
+        }
+
+        return $user;
     }
 
-    $user = User::where('api_token', $token)->first();
-
-    if (!$user) {
-        return response()->json([
-            'message' => 'Token inválido'
-        ], 401);
-    }
-
-    if ($user->role !== 'admin') {
-        return response()->json([
-            'message' => 'Acceso denegado: solo administradores'
-        ], 403);
-    }
-
-    return $user;
-}
-
-    // =========================
-    // CREAR PRODUCTO (ADMIN)
-    // =========================
+    // ========================================================
+    // CREAR PRODUCTO
+    // ========================================================
     public function store(Request $request)
     {
         $this->checkAdmin($request);
@@ -96,9 +118,9 @@ class ProductController extends Controller
         ], 201);
     }
 
-    // =========================
-    // ACTUALIZAR PRODUCTO (ADMIN)
-    // =========================
+    // ========================================================
+    // ACTUALIZAR PRODUCTO
+    // ========================================================
     public function update(Request $request, Product $product)
     {
         $this->checkAdmin($request);
@@ -120,9 +142,9 @@ class ProductController extends Controller
         ]);
     }
 
-    // =========================
-    // ELIMINAR PRODUCTO (ADMIN)
-    // =========================
+    // ========================================================
+    // ELIMINAR PRODUCTO
+    // ========================================================
     public function destroy(Request $request, Product $product)
     {
         $this->checkAdmin($request);
@@ -131,6 +153,40 @@ class ProductController extends Controller
 
         return response()->json([
             'message' => 'Producto eliminado correctamente'
+        ]);
+    }
+
+    // ========================================================
+    // LISTAR IMÁGENES
+    // ========================================================
+    public function listImages()
+    {
+        $imagesPath = public_path('images/games');
+
+        if (!is_dir($imagesPath)) {
+            return response()->json([
+                'images' => []
+            ]);
+        }
+
+        $files = scandir($imagesPath);
+        $images = [];
+
+        foreach ($files as $file) {
+            if ($file === '.' || $file === '..') continue;
+
+            $ext = strtolower(pathinfo($file, PATHINFO_EXTENSION));
+
+            if (in_array($ext, ['jpg', 'jpeg', 'png', 'gif', 'webp'])) {
+                $images[] = [
+                    'name' => $file,
+                    'url'  => url('images/games/' . $file)
+                ];
+            }
+        }
+
+        return response()->json([
+            'images' => $images
         ]);
     }
 }
