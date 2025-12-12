@@ -4,6 +4,15 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\ProductController;
 use App\Http\Controllers\FavoriteController;
+use App\Http\Controllers\Api\CommentController;
+
+
+// =====================
+// COMENTARIOS (PÚBLICO y AUTENTICADO)
+// =====================
+
+Route::middleware('auth:sanctum')->post('/comments', [CommentController::class, 'store']);
+Route::get('/comments/{product}', [CommentController::class, 'index']);
 
 // =====================
 // AUTENTICACIÓN (PÚBLICO)
