@@ -19,16 +19,16 @@ class CommentController extends Controller
     }
 
     // Crear comentario
-   public function store(Request $request)
+  public function store(Request $request)
 {
     $request->validate([
-        'user_id'    => 'required|integer|exists:users,id',
+        'user_id'    => 'required|exists:users,id',
         'product_id' => 'required|exists:products,id',
         'content'    => 'required|string|max:200',
     ]);
 
     $comment = Comment::create([
-        'user_id'    => $request->user_id,
+        'user_id'    => $request->user_id, 
         'product_id' => $request->product_id,
         'content'    => $request->content,
     ]);

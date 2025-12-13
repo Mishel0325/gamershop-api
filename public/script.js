@@ -685,6 +685,7 @@ async function sendComment(productId) {
       },
       body: JSON.stringify({
         product_id: productId,
+        user_id: currentUserId,
         content,
       }),
     });
