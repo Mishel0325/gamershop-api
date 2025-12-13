@@ -993,4 +993,15 @@ async function toggleFavorite(productId, btnEl) {
     }
   }
 }
+
+/*********************************************************
+ * ABRIR UBICACIÓN DE TIENDA FÍSICA
+ *********************************************************/
+function abrirUbicacion() {
+  window.open(
+    "https://maps.app.goo.gl/wkXUo5ieC45W2Tit8",
+    "_blank"
+  );
+}
+
 window.toggleFavorite = toggleFavorite;
