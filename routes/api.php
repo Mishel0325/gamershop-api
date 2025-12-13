@@ -3,51 +3,33 @@
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\ProductController;
-use App\Http\Controllers\FavoriteController;
 use App\Http\Controllers\Api\CommentController;
+use App\Http\Controllers\FavoriteController;
 
-
-// =====================
-// COMENTARIOS (PÚBLICO y AUTENTICADO)
-// =====================
-
-Route::middleware('auth:sanctum')->post('/comments', [CommentController::class, 'store']);
-Route::get('/comments/{product}', [CommentController::class, 'index']);
-
-// =====================
-// AUTENTICACIÓN (PÚBLICO)
-// =====================
+/*AUTENTICACIÓN (PÚBLICO)*/
 Route::post('/register', [AuthController::class, 'register']);
 Route::post('/login',    [AuthController::class, 'login']);
+Route::post('/logout',   [AuthController::class, 'logout']);
+Route::get('/me',        [AuthController::class, 'me']);
 
-// =====================
-// USUARIO AUTENTICADO (token manual)
-// =====================
-Route::get('/me', [AuthController::class, 'me']);
-Route::post('/logout', [AuthController::class, 'logout']);
-
-// =====================
-// PRODUCTOS (PÚBLICO)
-// =====================
+/*PRODUCTOS (PÚBLICO)*/
 Route::get('/products', [ProductController::class, 'index']);
 Route::get('/products/{product}', [ProductController::class, 'show']);
 
-// =====================
-// IMÁGENES (PÚBLICO)
-// =====================
-Route::get('/images', [ProductController::class, 'listImages']);
-
-// =====================
-// PRODUCTOS (ADMIN - validación en controller)
-// =====================
+/*
+ PRODUCTOS (ADMIN)*/
 Route::post('/products', [ProductController::class, 'store']);
 Route::put('/products/{product}', [ProductController::class, 'update']);
 Route::delete('/products/{product}', [ProductController::class, 'destroy']);
 
-// =====================
-// FAVORITOS 
-// =====================
+/*IMÁGENES (PÚBLICO)*/
+Route::get('/images', [ProductController::class, 'listImages']);
 
+/*FAVORITOS*/
 Route::get('/favorites/{user_id}', [FavoriteController::class, 'index']);
 Route::post('/favorites', [FavoriteController::class, 'store']);
 Route::delete('/favorites', [FavoriteController::class, 'destroy']);
+
+/* COMENTARIOS*/
+Route::post('/comments', [CommentController::class, 'store']);
+Route::get('/comments/{product_id}', [CommentController::class, 'index']);

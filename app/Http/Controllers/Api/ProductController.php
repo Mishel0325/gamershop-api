@@ -189,4 +189,18 @@ class ProductController extends Controller
             'images' => $images
         ]);
     }
+
+public function show($id)
+{
+    $product = Product::find($id);
+
+    if (!$product) {
+        return response()->json([
+            'message' => 'Producto no encontrado'
+        ], 404);
+    }
+
+    return response()->json($product, 200);
+}
+
 }

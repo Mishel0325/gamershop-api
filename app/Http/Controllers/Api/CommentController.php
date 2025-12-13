@@ -19,22 +19,23 @@ class CommentController extends Controller
     }
 
     // Crear comentario
-    public function store(Request $request)
-    {
-        $request->validate([
-            'product_id' => 'required|exists:products,id',
-            'content' => 'required|string|max:200',
-        ]);
+   public function store(Request $request)
+{
+    $request->validate([
+        'user_id'    => 'required|integer|exists:users,id',
+        'product_id' => 'required|exists:products,id',
+        'content'    => 'required|string|max:200',
+    ]);
 
-        $comment = Comment::create([
-            'user_id' => Auth::id(),
-            'product_id' => $request->product_id,
-            'content' => $request->content,
-        ]);
+    $comment = Comment::create([
+        'user_id'    => $request->user_id,
+        'product_id' => $request->product_id,
+        'content'    => $request->content,
+    ]);
 
-        return response()->json([
-            'message' => 'Comentario agregado',
-            'comment' => $comment
-        ], 201);
-    }
+    return response()->json([
+        'message' => 'Comentario agregado',
+        'comment' => $comment
+    ], 201);
+}
 }

@@ -18,15 +18,20 @@ class Product extends Model
         'image_url',
     ];
 
-    // ACCESSOR CLAVE
     public function getImageUrlAttribute($value)
-    {
-        // Si existe imagen → devuelve URL completa
-        if ($value) {
-            return url($value);
-        }
-
-        // Imagen por defecto SIEMPRE
-        return url('images/games/default.jpg');
+{
+    // (Firebase)
+    if ($value && str_starts_with($value, 'http')) {
+        return $value;
     }
+
+    // Si es ruta local
+    if ($value) {
+        return asset($value);
+    }
+
+    // Imagen por defecto
+    return asset('images/default.jpg');
+}
+
 }
